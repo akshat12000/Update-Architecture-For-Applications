@@ -56,7 +56,7 @@ def generate_optimized_delta_patch(original_file_path, updated_file_path, patch_
 
     print(f"Optimized delta patch generated and saved to {patch_file_path}")
 
-def apply_optimized_delta_patch(original_file_path, patch_file_path, output_file_path):
+def apply_optimized_delta_patch(original_file_path, patch_file_path):
     """
     Apply an optimized delta patch to an original file to produce the updated file.
     """
@@ -79,11 +79,7 @@ def apply_optimized_delta_patch(original_file_path, patch_file_path, output_file
             updated_data.extend(data)
 
     # Write the updated data to a new file
-    with open(output_file_path, "wb") as f:
+    with open(original_file_path, "wb") as f:
         f.write(updated_data)
 
-    print(f"Patched file created at {output_file_path}")
-
-
-generate_optimized_delta_patch("1.txt", "2.txt", "delta_patch.bin")
-apply_optimized_delta_patch("1.txt", "delta_patch.bin", "updated_file.bin")
+    print(f"Patched file created at {original_file_path}")

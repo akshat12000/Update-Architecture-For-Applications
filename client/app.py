@@ -4,10 +4,16 @@ from tkinter import messagebox
 import os
 import json
 import hashlib
+import sys
+
+# Add the root directory (project directory) to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.binarydiffs.akdelta import apply_optimized_delta_patch
 
 # File paths
-TEXT_FILE = "client/repo/A.txt"
-VERSION_FILE = "client/version.json"
+TEXT_FILE = os.path.dirname(__file__) + "/repo/A.txt"
+VERSION_FILE = os.path.dirname(__file__) + "/version.json"
+PATCH_FOLDER = os.path.dirname(__file__) + "/patches"
 
 SERVER_URL = "http://127.0.0.1:5000"
 
@@ -35,37 +41,7 @@ def apply_patch(file_path, patch_content):
     """
     Apply a unified diff patch to a base file.
     """
-    with open(file_path, 'r') as original:
-        original_lines = original.readlines()
-
-    patched_lines = []
-    base_index = 0
-
-    for line in patch_content.split("\r\n"):
-        if line.startswith('---') or line.startswith('+++'):
-            # Skip the file headers
-            continue
-        elif line.startswith('@@'):
-            # Parse the hunk header, e.g., "@@ -1,1 +1,2 @@"
-            hunk_info = line.strip().split(' ')[1]
-            base_index = int(hunk_info.split(',')[0][1:]) - 1
-        elif line.startswith('-'):
-            # Remove line (do not append to patched_lines)
-            base_index += 1
-        elif line.startswith('+'):
-            # Add line to patched_lines
-            patched_lines.append(line[1:] + '\n')
-        else:
-            # Unchanged line (context line)
-            if base_index < len(original_lines):
-                patched_lines.append(original_lines[base_index])
-                base_index += 1
-            else:
-                print("Warning: Context line out of range in base file.")
-    
-    # Write the patched content to the output file
-    with open(file_path, 'w') as output:
-        output.writelines(patched_lines)
+    apply_optimized_delta_patch(file_path, patch_content)
 
 def check_file_corruption(file_path, version_file):
     """Check if the file hash matches the hash in the version.json."""
@@ -159,7 +135,11 @@ class UpdateClient:
         patch_response = requests.get(patch_url)
 
         if patch_response.status_code == 200:
-            self.patch_content = patch_response.text
+            self.patch_content = patch_response.content
+            # Save the patch to a file
+            with open(f"{PATCH_FOLDER}/{self.update_info['version']}.patch", "wb") as f:
+                f.write(self.patch_content)
+            self.patch_file = f"{PATCH_FOLDER}/{self.update_info['version']}.patch"
             messagebox.showinfo("Patch Downloaded", "Patch downloaded successfully. You can now apply it.")
             self.apply_button.config(state=tk.NORMAL)
         else:
@@ -168,7 +148,7 @@ class UpdateClient:
     def apply_patch(self):
         """Apply the downloaded patch to the local file."""
         try:
-            apply_patch(TEXT_FILE, self.patch_content)
+            apply_patch(TEXT_FILE, self.patch_file)
 
             # Update the version number
             self.current_version = self.update_info["version"]

@@ -2,14 +2,17 @@ from flask import Flask, request, jsonify, send_file
 import os
 import json
 import hashlib
-import difflib
+import sys
+
+# Add the root directory (project directory) to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.binarydiffs.akdelta import generate_optimized_delta_patch
 
 # File paths
-BASE_DIR = './server'
-REPO_DIR = "repo"
-TEXT_FILE = "repo/A.txt"
-VERSION_FILE = "version.json"
-PATCH_FOLDER = "patches"
+REPO_DIR = os.path.dirname(__file__) + "/repo"
+TEXT_FILE = os.path.dirname(__file__) + "/repo/A.txt"
+VERSION_FILE = os.path.dirname(__file__) + "/version.json"
+PATCH_FOLDER = os.path.dirname(__file__) + "/patches"
 
 app = Flask(__name__)
 
@@ -41,10 +44,7 @@ def bump_version(version):
 
 def generate_patch(old_file, new_file, patch_file):
     """Generate a patch file."""
-    with open(old_file, "r") as old, open(new_file, "r") as new:
-        diff = difflib.unified_diff(old.readlines(), new.readlines(), lineterm='')
-    with open(patch_file, "w") as patch:
-        patch.writelines(line + '\n' for line in diff)
+    generate_optimized_delta_patch(old_file, new_file, patch_file)
 
 @app.route("/check_update", methods=["GET"])
 def check_update():
@@ -67,7 +67,7 @@ def get_patch(patch_name):
     """Serve a patch file."""
     patch_path = os.path.join(PATCH_FOLDER, patch_name)
     if os.path.exists(patch_path):
-        return send_file(patch_path)
+        return send_file(patch_path, as_attachment=True)
     return jsonify({"error": "Patch not found"}), 404
 
 @app.route("/update_file", methods=["GET"])
